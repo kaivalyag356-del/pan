@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESP32 Audio Pan</title>
+</head>
+<body style="font-family:sans-serif;padding:16px">
+<h2>ESP32 Audio Pan</h2>
+<p>1. Pick a song:</p>
+<input type="file" id="f" accept="audio/*"><br><br>
+<audio id="a" controls style="width:100%"></audio>
+<p>2. Connect:</p>
+<button id="c" style="font-size:18px;padding:10px">Connect ESP32</button>
+<h3>Pan: <span id="p">0</span></h3>
+<script>
+const ctx = new AudioContext();
+const audio = document.getElementById('a');
+const panner = new StereoPannerNode(ctx, {pan: 0});
+ctx.createMediaElementSource(audio).connect(panner).connect(ctx.destination);
+
+f.onchange = () => { audio.src = URL.createObjectURL(f.files[0]); };
+
+c.onclick = async () => {
+  await ctx.resume();
+  const S = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+  const C = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+  const dev = await navigator.bluetooth.requestDevice({filters:[{services:[S]}]});
+  const srv = await dev.gatt.connect();
+  const ch = await (await srv.getPrimaryService(S)).getCharacteristic(C);
+  await ch.startNotifications();
+  ch.addEventListener('characteristicvaluechanged', e => {
+    const v = parseInt(new TextDecoder().decode(e.target.value));
+    if (!isNaN(v)) {
+      panner.pan.setTargetAtTime(v / 100, ctx.currentTime, 0.1); // smooth movement
+      p.textContent = v;
+    }
+  });
+};
+</script>
+</body>
+</html>

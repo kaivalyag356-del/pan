@@ -11,12 +11,13 @@
 <audio id="a" controls style="width:100%"></audio>
 <p>2. Connect:</p>
 <button id="c" style="font-size:18px;padding:10px">Connect ESP32</button>
-<h3>Pan: <span id="p">0</span></h3>
+<h3>Pan: <span id="p">0</span> &nbsp; Volume: <span id="v">100</span>%</h3>
 <script>
 const ctx = new AudioContext();
 const audio = document.getElementById('a');
 const panner = new StereoPannerNode(ctx, {pan: 0});
-ctx.createMediaElementSource(audio).connect(panner).connect(ctx.destination);
+const gain = new GainNode(ctx, {gain: 1});
+ctx.createMediaElementSource(audio).connect(panner).connect(gain).connect(ctx.destination);
 
 f.onchange = () => { audio.src = URL.createObjectURL(f.files[0]); };
 
@@ -29,10 +30,16 @@ c.onclick = async () => {
   const ch = await (await srv.getPrimaryService(S)).getCharacteristic(C);
   await ch.startNotifications();
   ch.addEventListener('characteristicvaluechanged', e => {
-    const v = parseInt(new TextDecoder().decode(e.target.value));
-    if (!isNaN(v)) {
-      panner.pan.setTargetAtTime(v / 100, ctx.currentTime, 0.1); // smooth movement
-      p.textContent = v;
+    const parts = new TextDecoder().decode(e.target.value).split(',');
+    const pan = parseInt(parts[0]);
+    const vol = parseInt(parts[1]);
+    if (!isNaN(pan)) {
+      panner.pan.setTargetAtTime(pan / 100, ctx.currentTime, 0.3);
+      p.textContent = pan;
+    }
+    if (!isNaN(vol)) {
+      gain.gain.setTargetAtTime(vol / 100, ctx.currentTime, 0.3);
+      v.textContent = vol;
     }
   });
 };
